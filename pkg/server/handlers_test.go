@@ -1,6 +1,8 @@
 package server
 
 import (
+	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -12,17 +14,19 @@ type TestData struct {
 func TestValidateUrl(t *testing.T) {
 
 	urls := []TestData{
-		{"https://google.com", true},
-		{"https://lms.ascon.ru/course/view.php?id=732#section-2", true},
-		{"https://habr.com/ru/articles/541676/", true},
-		{"htt://google.com", false},
-		{"", false},
-		{" ", false},
+		{"https://google.com", nil},
+		{"https://lms.ascon.ru/course/view.php?id=732#section-2", nil},
+		{"https://habr.com/ru/articles/541676/", nil},
+		{"google.com", nil},
+		{"http://google.com", nil},
+		{"htt://google.com", errors.New("provided url not valid")},
+		{"", errors.New("provided url not valid")},
+		{" ", errors.New("provided url not valid")},
 	}
 	for _, url := range urls {
 		result := validateUrl(url.data.(string))
-		if result != url.expected.(bool) {
-			t.Fatalf("For URL %s want %t, got %t", url.data.(string), url.expected.(bool), result)
+		if reflect.TypeOf(result) != reflect.TypeOf(url.expected) {
+			t.Fatalf("For URL %s want %v, got %v", url.data.(string), url.expected, result)
 		}
 	}
 }

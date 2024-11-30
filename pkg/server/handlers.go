@@ -2,16 +2,30 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strings"
 )
 
-func validateUrl(url string) bool {
-	validUrl := regexp.MustCompile(`^(http(s):\/\/.)[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$`)
+func handleErr(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func validateUrl(url string) error {
+	validUrl := regexp.MustCompile(`^(http(s)?:\/\/.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$`)
 	isValid := validUrl.MatchString(url)
-	return isValid
+
+	if !isValid {
+		return errors.New("provided url not valid")
+	}
+
+	return nil
 }
 
 func enableCors(w *http.ResponseWriter) {
@@ -19,56 +33,62 @@ func enableCors(w *http.ResponseWriter) {
 }
 
 func createUrl(w http.ResponseWriter, r *http.Request) {
-	type reqJson struct {
-		FullUrl string
+	type reqBody struct {
+		RawUrl string
 	}
+
 	enableCors(&w)
-	var j reqJson
+	w.Header().Set("Content-type", "application/json")
+
+	var data reqBody
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&j)
+	err := decoder.Decode(&data)
+	handleErr(err)
 
+	err = validateUrl(data.RawUrl)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	if !validateUrl(j.FullUrl) {
-		w.Write([]byte(fmt.Sprintf("url %s not valid", j.FullUrl)))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("{\"message\": \"%s\"}", err)))
 		return
 	}
 
-	hash, err := dbConnection.CreateUrl(j.FullUrl, GetCurrentServer().host)
+	parsedUrl, err := url.Parse(data.RawUrl)
+	handleErr(err)
 
-	if err != nil {
-		log.Fatal(err)
+	if parsedUrl.Scheme == "" {
+		parsedUrl.Scheme = "https"
+		parsedUrl.Host = parsedUrl.Path
+		parsedUrl.Path = ""
 	}
 
-	w.Header().Set("Content-type", "application/json")
-	_, err = w.Write([]byte(fmt.Sprintf("{\"shortenedUrl\": \"%s:%s/%s\"}", GetCurrentServer().host, GetCurrentServer().port, hash)))
-
-	if err != nil {
-		log.Fatal(err)
+	if !strings.Contains(parsedUrl.Host, "www.") {
+		parsedUrl.Host = "www." + parsedUrl.Host
 	}
+
+	hash, err := dbConnection.CreateUrl(parsedUrl.String())
+	handleErr(err)
+
+	_, err = w.Write([]byte(fmt.Sprintf("{\"urlHash\": \"%s\"}", hash)))
+	handleErr(err)
 }
 
 func getUrl(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func getAllUrls(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func redirectToOriginalUrl(w http.ResponseWriter, r *http.Request) {
 	enableCors(&w)
-	path := r.URL.Path
-	fullUrl, err := dbConnection.GetFullUrl(path[1:])
 
+	path := r.URL.Path
+
+	hash := strings.Split(path, "/")[2]
+
+	fullUrl, err := dbConnection.GetFullUrl(hash)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		w.Write([]byte(fmt.Sprintf("{\"message\": \"%s\"}", err)))
 		return
 	}
 
-	http.Redirect(w, r, fullUrl, http.StatusPermanentRedirect)
+	w.Write([]byte(fmt.Sprintf("{\"fullUrl\": \"%s\"}", fullUrl)))
+}
+
+func getAllUrls(w http.ResponseWriter, r *http.Request) {
 
 }

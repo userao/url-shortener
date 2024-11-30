@@ -31,13 +31,11 @@ func GetCurrentServer() *Server {
 	return &server
 }
 
-// тут обработчики эндпоинтов
 func (s Server) InitServer(conn connector.IConnection) {
 	dbConnection = conn.(*connector.Connection)
-	http.HandleFunc("GET /urls/:id", getUrl)
+	http.HandleFunc("GET /urls/{hash}", getUrl)
 	http.HandleFunc("GET /urls", getAllUrls)
 	http.HandleFunc("POST /urls/create", createUrl)
-	http.HandleFunc("GET /{hash}", redirectToOriginalUrl)
 }
 
 func (s Server) ListenAndServe() {

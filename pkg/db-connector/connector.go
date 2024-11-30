@@ -10,7 +10,7 @@ import (
 
 type IConnection interface {
 	InitConnection()
-	CreateUrl(string, string) (string, error)
+	CreateUrl(string) (string, error)
 }
 
 type Connection struct {
@@ -57,7 +57,7 @@ func (c *Connection) InitConnection() {
 	}
 }
 
-func (c Connection) CreateUrl(full, host string) (string, error) {
+func (c Connection) CreateUrl(full string) (string, error) {
 	var url Url
 
 	result := c.db.Where("full_url = ?", full).First(&url)
