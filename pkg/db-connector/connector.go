@@ -26,6 +26,7 @@ type Url struct {
 	gorm.Model
 	FullUrl      string
 	ShortenedUrl string
+	ClickCount   uint `gorm:"not null;default:0"`
 }
 
 var connection Connection
@@ -76,12 +77,17 @@ func (c Connection) CreateUrl(full string) (string, error) {
 	return shortenedUrl, nil
 }
 
-func (c Connection) GetFullUrl(shortenedUrl string) (string, error) {
+func (c Connection) GetUrl(shortenedUrl string) (Url, error) {
 	var url Url
 	result := c.db.Where("shortened_url = ?", shortenedUrl).First(&url)
 	if result.RowsAffected == 0 {
-		return "", fmt.Errorf("record for %s not found", shortenedUrl)
+		return Url{}, fmt.Errorf("record for %s not found", shortenedUrl)
 	}
 
-	return url.FullUrl, nil
+	return url, nil
+}
+
+func (c Connection) IncreaseClickCount(url *Url) {
+	url.ClickCount = url.ClickCount + 1
+	c.db.Save(url)
 }

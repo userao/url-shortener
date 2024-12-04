@@ -7,9 +7,13 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
+
+var Error = log.New(os.Stdout, "\u001b[31mERROR: \u001b[0m", log.LstdFlags|log.Lshortfile)
 
 func handleErr(err error) {
 	if err != nil {
@@ -49,6 +53,7 @@ func createUrl(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("{\"message\": \"%s\"}", err)))
+		Error.Println(err)
 		return
 	}
 
@@ -76,17 +81,26 @@ func getUrl(w http.ResponseWriter, r *http.Request) {
 	enableCors(&w)
 
 	path := r.URL.Path
+	clicked, err := strconv.ParseBool(r.URL.Query().Get("clicked"))
+
+	handleErr(err)
 
 	hash := strings.Split(path, "/")[2]
 
-	fullUrl, err := dbConnection.GetFullUrl(hash)
+	url, err := dbConnection.GetUrl(hash)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("{\"message\": \"%s\"}", err)))
+		Error.Println(err)
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("{\"fullUrl\": \"%s\"}", fullUrl)))
+	if clicked {
+		dbConnection.IncreaseClickCount(&url)
+	}
+
+	encoder := json.NewEncoder(w)
+	encoder.Encode(url)
 }
 
 func getAllUrls(w http.ResponseWriter, r *http.Request) {
