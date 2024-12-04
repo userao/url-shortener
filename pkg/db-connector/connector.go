@@ -24,9 +24,9 @@ type Connection struct {
 
 type Url struct {
 	gorm.Model
-	FullUrl      string
-	ShortenedUrl string
-	ClickCount   uint `gorm:"not null;default:0"`
+	FullUrl    string
+	Hash       string
+	ClickCount uint `gorm:"not null;default:0"`
 }
 
 var connection Connection
@@ -64,17 +64,16 @@ func (c Connection) CreateUrl(full string) (string, error) {
 	result := c.db.Where("full_url = ?", full).First(&url)
 
 	if result.RowsAffected != 0 {
-		return url.ShortenedUrl, nil
+		return url.Hash, nil
 	}
 
 	url = Url{FullUrl: full}
 	c.db.Create(&url)
 	hash := utils.GetHash(url.ID)
-	shortenedUrl := hash
-	url.ShortenedUrl = shortenedUrl
+	url.Hash = hash
 	c.db.Save(&url)
 
-	return shortenedUrl, nil
+	return hash, nil
 }
 
 func (c Connection) GetUrl(shortenedUrl string) (Url, error) {
