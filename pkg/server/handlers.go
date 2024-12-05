@@ -11,13 +11,15 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/skip2/go-qrcode"
 )
 
 var Error = log.New(os.Stdout, "\u001b[31mERROR: \u001b[0m", log.LstdFlags|log.Lshortfile)
 
 func handleErr(err error) {
 	if err != nil {
-		log.Fatal(err)
+		Error.Println(err)
 	}
 }
 
@@ -101,6 +103,20 @@ func getUrl(w http.ResponseWriter, r *http.Request) {
 
 	encoder := json.NewEncoder(w)
 	encoder.Encode(url)
+}
+
+func getQr(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	hash := strings.Split(path, "/")[2]
+	png, err := qrcode.Encode(hash, qrcode.Low, 256)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(fmt.Sprintf("could not generate QR-code: %v", err))
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Write(png)
 }
 
 func getAllUrls(w http.ResponseWriter, r *http.Request) {

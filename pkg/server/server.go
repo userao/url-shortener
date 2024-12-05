@@ -34,6 +34,7 @@ func GetCurrentServer() *Server {
 func (s Server) InitServer(conn connector.IConnection) {
 	dbConnection = conn.(*connector.Connection)
 	http.HandleFunc("GET /urls/{hash}", getUrl)
+	http.HandleFunc("GET /urls/{hash}/generate", getQr)
 	http.HandleFunc("GET /urls", getAllUrls)
 	http.HandleFunc("POST /urls/create", createUrl)
 }
